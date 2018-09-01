@@ -57,6 +57,8 @@ const styles = theme => ({
 
 class App extends Component {
 
+  timer = null
+
   state = {
     investiments: {
       quantity: "",
@@ -66,11 +68,14 @@ class App extends Component {
       quantity: "",
       error: false,
     },
+    completed: 0,
+    buffer: 10,
     step_one_loading: false,
     step_one_done: false,
   }
 
   resetErrors = () => {
+
     let { investiments, scenarios } = this.state
 
     investiments.error = false
@@ -114,11 +119,20 @@ class App extends Component {
     }
 
     if (!investiments.error && !scenarios.error) {
-      setTimeout(() => {
-        this.setState({ step_one_loading: false, step_one_done: true })
-      }, 2000)
+      this.timer = setInterval(this.linearProgress, 400);
     } else {
       this.setState({ step_one_loading: false })
+    }
+  }
+
+  linearProgress = () => {
+    const { completed } = this.state
+    if (completed > 100) {
+      this.setState({ completed: 0, buffer: 100, step_one_loading: false, step_one_done: true })
+    } else {
+      const diff = Math.random() * 80
+      const diff2 = Math.random() * 80
+      this.setState({ completed: completed + diff, buffer: completed + diff + diff2 })
     }
   }
 
@@ -133,7 +147,7 @@ class App extends Component {
   renderScenarioTableCellWithInput = (index) => {
 
     const { classes } = this.props
-    
+  
     return (
       <TextField
         id="number"
@@ -149,8 +163,10 @@ class App extends Component {
     )
   }
 
-  renderInvestimentTableRow = index => {
+  renderInvestimentTableRow = (index) => {
+
     const { scenarios } = this.state
+
     return (
       <TableRow key={index}>
         {[...Array(parseInt(scenarios.quantity))].map((scenario, index) => this.renderInvestimentTableCell(index))}
@@ -167,7 +183,9 @@ class App extends Component {
   }
   
   renderInvestimentTableCellWithInput = (index) => {
+
     const { classes } = this.props
+
     return (
       <TextField
         id="number"
@@ -197,11 +215,11 @@ class App extends Component {
   render() {
     
     const { classes } = this.props
-    const { investiments, scenarios, step_one_loading, step_one_done } = this.state
+    const { investiments, scenarios, step_one_loading, step_one_done, completed, buffer } = this.state
 
     return (
       <div className={classes.root}>
-        {step_one_loading ? <LinearProgress /> : null}
+        {step_one_loading ? <LinearProgress variant="buffer" value={completed} valueBuffer={buffer} /> : null}
         <Grid 
           container 
           justify="center"
