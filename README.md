@@ -1,1 +1,1 @@
-## Trabalho da disciplina de Sistamas de Apoio à Decisão
+## Trabalho da disciplina de Sistemas de Apoio à Decisão
