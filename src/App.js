@@ -100,6 +100,10 @@ class App extends Component {
     step_two_loading: false,
     step_two_done: false,
     environment: "",
+    maximax: {},
+    maximin: {},
+    laplace: {},
+    hurwicz: {},
   }
 
   handleStepOne = () => {
@@ -157,7 +161,7 @@ class App extends Component {
 
   handleStepTwo = () => {
     
-    let { scenariosPercents, scenariosPercentsSum } = this.state
+    let { scenariosPercents, scenariosPercentsSum, investiments, maximax, scenariosValues, maximin, laplace, hurwicz } = this.state
     
     // Makes the sum of the percents
     Object.entries(scenariosPercents).forEach(([key, value]) => {
@@ -166,8 +170,141 @@ class App extends Component {
     
     // Verifies that the sum of percents is different from 100
     if (scenariosPercentsSum !== 100) {
-      // Show the error
+      // TODO: Show the error
     }
+
+    // TODO: Check that the input values are all filled
+
+    maximax = this.handleCalculateMaximaxValues()
+    maximin = this.handleCalculateMaximinValues()
+    laplace = this.handleCalculateLaplaceValues()
+    hurwicz = this.handleCalculateHurwiczValues()
+
+    console.log(hurwicz)
+  }
+
+  handleCalculateMaximaxValues = () => {
+
+    let { investiments, maximax, scenariosValues } = this.state
+
+    let keyScenario = 0
+    let valueScenario = 0
+
+    for (let i = 1; i <= investiments.quantity; i++) {
+
+      Object.entries(scenariosValues[i]).forEach(([key, value]) => {
+        if (value > valueScenario) {
+          keyScenario = key
+          valueScenario = value
+        }
+      })
+
+      maximax = {
+        ...maximax,
+        [i]: {
+          key: keyScenario,
+          value: valueScenario
+        }
+      }
+
+      keyScenario = 0
+      valueScenario = 0
+    }
+
+    this.setState({ maximax })
+
+    return maximax
+  }
+
+  handleCalculateMaximinValues = () => {
+
+    let { investiments, maximin, scenariosValues } = this.state
+
+    let keyScenario = 0
+    let valueScenario = 0
+
+    for (let i = 1; i <= investiments.quantity; i++) {
+
+      Object.entries(scenariosValues[i]).forEach(([key, value]) => {
+
+        if (key == 1) {
+          valueScenario = value
+        }
+
+        if (value <= valueScenario) {
+          keyScenario = key
+          valueScenario = value
+        }
+      })
+
+      maximin = {
+        ...maximin,
+        [i]: {
+          key: keyScenario,
+          value: valueScenario
+        }
+      }
+
+      keyScenario = 0
+      valueScenario = 0
+    }
+
+    this.setState({ maximin })
+
+    return maximin
+  }
+
+  handleCalculateLaplaceValues = () => {
+
+    let { investiments, laplace, scenariosValues } = this.state
+
+    let sum = 0
+
+    for (let i = 1; i <= investiments.quantity; i++) {
+
+      Object.entries(scenariosValues[i]).forEach(([key, value]) => {
+        sum = sum + value
+      })
+
+      laplace = {
+        ...laplace,
+        [i]: sum / investiments.quantity
+      }
+
+      sum = 0
+    }
+
+    this.setState({ laplace })
+
+    return laplace
+  }
+
+  handleCalculateHurwiczValues = () => {
+
+    let { investiments, hurwicz, scenariosValues, scenariosPercents } = this.state
+
+    let relative = 0
+    let sum = 0
+
+    for (let i = 1; i <= investiments.quantity; i++) {
+
+      Object.entries(scenariosValues[i]).forEach(([key, value]) => {
+        relative = value * (scenariosPercents[key] / 100)
+        sum = sum + relative
+      })
+
+      hurwicz = {
+        ...hurwicz,
+        [i]: sum
+      }
+
+      relative = 0
+      sum = 0
+    }
+
+    this.setState({ hurwicz })
+
+    return hurwicz
   }
 
   resetErrors = () => {
@@ -182,13 +319,16 @@ class App extends Component {
 
   linearProgress = () => {
 
-
     const { completed } = this.state
+
     if (completed > 100) {
+
       this.setState({ completed: 0, buffer: 100, step_one_loading: false, step_one_done: true })
     } else {
+
       const diff = Math.random() * 80
       const diff2 = Math.random() * 80
+      
       this.setState({ completed: completed + diff, buffer: completed + diff + diff2 })
     }
   }
