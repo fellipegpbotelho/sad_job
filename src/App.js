@@ -11,8 +11,23 @@ import {
   TableCell, 
   TableHead, 
   TableRow,
+  Input,
+  InputLabel,
+  MenuItem,
+  FormHelperText, 
+  FormControl,
+  Select
 } from "@material-ui/core"
 
+const CustomTableCell = withStyles(theme => ({
+  head: {
+    backgroundColor: theme.palette.common.white,
+    color: theme.palette.common.white,
+  },
+  body: {
+    fontSize: 14,
+  },
+}))(TableCell)
 
 const styles = theme => ({
   root: {
@@ -53,6 +68,13 @@ const styles = theme => ({
     width: theme.spacing.unit * 4,
     height: theme.spacing.unit * 4,
   },
+  formControl: {
+    margin: theme.spacing.unit,
+    minWidth: 120,
+  },
+  selectEmpty: {
+    marginTop: theme.spacing.unit * 2,
+  },
 })
 
 class App extends Component {
@@ -68,23 +90,19 @@ class App extends Component {
       quantity: "",
       error: false,
     },
+    scenariosPercents: {},
+    scenariosPercentsSum: 0,
+    scenariosValues: {},
     completed: 0,
     buffer: 10,
     step_one_loading: false,
     step_one_done: false,
+    step_two_loading: false,
+    step_two_done: false,
+    environment: "",
   }
 
-  resetErrors = () => {
-
-    let { investiments, scenarios } = this.state
-
-    investiments.error = false
-    scenarios.error = false
-
-    this.setState({ investiments, scenarios })
-  }
-
-  handlerStepOne = () => {
+  handleStepOne = () => {
     
     // Reset errors that happened before
     this.resetErrors()
@@ -106,6 +124,12 @@ class App extends Component {
       this.setState({ investiments })
     }
 
+    // Validate Investiments
+    if (investiments.quantity < 0) {
+      investiments.error = "Quantidade inválida"
+      this.setState({ investiments })
+    }
+
     // Validate Scenarios
     if (scenarios.quantity > 10) {
       scenarios.error = "É permitido somente 10 cenários"
@@ -118,6 +142,12 @@ class App extends Component {
       this.setState({ scenarios })
     }
 
+    // Validate Scenarios
+    if (scenarios.quantity < 0) {
+      scenarios.error = "Quantidade inválida"
+      this.setState({ scenarios })
+    }
+
     if (!investiments.error && !scenarios.error) {
       this.timer = setInterval(this.linearProgress, 400);
     } else {
@@ -125,7 +155,34 @@ class App extends Component {
     }
   }
 
+  handleStepTwo = () => {
+    
+    let { scenariosPercents, scenariosPercentsSum } = this.state
+    
+    // Makes the sum of the percents
+    Object.entries(scenariosPercents).forEach(([key, value]) => {
+      scenariosPercentsSum = scenariosPercentsSum + value
+    })
+    
+    // Verifies that the sum of percents is different from 100
+    if (scenariosPercentsSum !== 100) {
+      // Show the error
+    }
+  }
+
+  resetErrors = () => {
+
+    let { investiments, scenarios } = this.state
+
+    investiments.error = false
+    scenarios.error = false
+
+    this.setState({ investiments, scenarios })
+  }
+
   linearProgress = () => {
+
+
     const { completed } = this.state
     if (completed > 100) {
       this.setState({ completed: 0, buffer: 100, step_one_loading: false, step_one_done: true })
@@ -138,9 +195,9 @@ class App extends Component {
 
   renderScenarioTableCell = index => {
     return (
-      <TableCell key={index}>
+      <CustomTableCell key={index}>
         {this.renderScenarioTableCellWithInput(index + 1)}
-      </TableCell>
+      </CustomTableCell>
     )
   }
 
@@ -150,11 +207,13 @@ class App extends Component {
   
     return (
       <TextField
+        required
         id="number"
         label={`CEN. ${index}`}
         placeholder={"%"}
         type="number"
         className={classes.textFieldCell}
+        onChange={(event) => this.handleOnChangeScenariosPercentsText(event.target.value, index)}
         InputLabelProps={{
           shrink: true,
         }}
@@ -163,35 +222,58 @@ class App extends Component {
     )
   }
 
-  renderInvestimentTableRow = (index) => {
+  handleOnChangeScenariosPercentsText = (value, index) => {
+
+    let { scenariosPercents } = this.state
+
+    scenariosPercents[index] = parseFloat(value)
+
+    this.setState({ scenariosPercents })
+  }
+
+  handleOnChangeScenariosValuesText = (value, index, indexInvestiment) => {
+
+    let { scenariosValues } = this.state
+
+    scenariosValues[indexInvestiment] = { 
+      ...scenariosValues[indexInvestiment],
+      [index]: parseFloat(value) 
+    }
+    
+    this.setState({ scenariosValues })
+  }
+
+  renderInvestimentTableRow = (indexRow) => {
 
     const { scenarios } = this.state
-
+    
     return (
-      <TableRow key={index}>
-        {[...Array(parseInt(scenarios.quantity))].map((scenario, index) => this.renderInvestimentTableCell(index))}
+      <TableRow key={indexRow}>
+        {[...Array(parseInt(scenarios.quantity, 10))].map((scenario, index) => this.renderInvestimentTableCell(index, indexRow))}
       </TableRow>
     )
   }
 
-  renderInvestimentTableCell = (index) => {
+  renderInvestimentTableCell = (index, indexRow) => {
     return (
       <TableCell key={index}>
-        {this.renderInvestimentTableCellWithInput(index)}
+        {this.renderInvestimentTableCellWithInput(index, indexRow)}
       </TableCell>
     )
   }
   
-  renderInvestimentTableCellWithInput = (index) => {
+  renderInvestimentTableCellWithInput = (index, indexRow) => {
 
     const { classes } = this.props
 
     return (
       <TextField
+        required
         id="number"
-        label=""
+        label={`INV. ${indexRow + 1}`}
         type="number"
         className={classes.textFieldCell}
+        onChange={(event) => this.handleOnChangeScenariosValuesText(event.target.value, index + 1, indexRow + 1)}
         InputLabelProps={{
           shrink: true,
         }}
@@ -201,25 +283,35 @@ class App extends Component {
   }
 
   handleOnChangeInvestimentsText = (quantity) => {
+
     let { investiments } = this.state
+
     investiments.quantity = quantity
+
     this.setState({ investiments })
   }
 
   handleOnChangeScenariosText = (quantity) => {
+
     let { scenarios } = this.state
+
     scenarios.quantity = quantity
+
     this.setState({ scenarios })
+  }
+
+  handleChangeEnvironment = (event) => {
+    this.setState({ ...this.state, environment: event.target.value })
   }
 
   render() {
     
     const { classes } = this.props
-    const { investiments, scenarios, step_one_loading, step_one_done, completed, buffer } = this.state
+    const { investiments, scenarios, step_one_loading, step_two_loading, step_two_done, step_one_done, completed, buffer } = this.state
 
     return (
       <div className={classes.root}>
-        {step_one_loading ? <LinearProgress variant="buffer" value={completed} valueBuffer={buffer} /> : null}
+        {step_one_loading || step_two_loading ? <LinearProgress variant="buffer" value={completed} valueBuffer={buffer} /> : null}
         <Grid 
           container 
           justify="center"
@@ -229,8 +321,8 @@ class App extends Component {
               <form className={classes.container} noValidate autoComplete="off">
                 <TextField
                   required
-                  helperText="Máximo de investimentos: 50"
-                  error={investiments.error}
+                  helperText="Qtd. máxima de investimentos: 50"
+                  error={!!investiments.error}
                   id="investiments_quantity"
                   value={investiments.quantity}
                   label={investiments.error ? investiments.error : "Qtd. investimentos:"}
@@ -246,8 +338,8 @@ class App extends Component {
                 />
                 <TextField
                   required
-                  helperText="Máximo de cenários: 10"
-                  error={scenarios.error}
+                  helperText="Qtd. máxima de cenários: 10"
+                  error={!!scenarios.error}
                   id="scenarios_quantity"
                   value={scenarios.quantity}
                   label={scenarios.error ? scenarios.error : "Qtd. cenários:"}
@@ -261,31 +353,64 @@ class App extends Component {
                   onChange={event => this.handleOnChangeScenariosText(event.target.value)}
                 />
                 <Button 
-                  variant="contained" 
+                  variant="outlined" 
+                  color="primary" 
+                  size="large" 
+                  className={classes.button} 
+                  onClick={() => this.handleStepOne()}
+                >
+                  AVANÇAR
+                </Button>
+              </form>
+            ) : null}
+            {step_one_done && !step_two_done ? (
+              <div>
+                <form className={classes.container} autoComplete="off">
+                  <FormControl className={classes.formControl}>
+                    <InputLabel shrink htmlFor="age-label-placeholder">
+                      Ambiente
+                    </InputLabel>
+                    <Select
+                      value={this.state.environment}
+                      onChange={(event) => this.handleChangeEnvironment(event)}
+                      input={<Input name="age" id="age-label-placeholder" />}
+                      displayEmpty
+                      name="age"
+                      className={classes.selectEmpty}
+                    >
+                      <MenuItem value=""><em>Selecione</em></MenuItem>
+                      <MenuItem value={1}>Incerteza</MenuItem>
+                      <MenuItem value={2}>Risco</MenuItem>
+                    </Select>
+                    <FormHelperText>Selecione o ambiente</FormHelperText>
+                  </FormControl>
+                </form>
+                <Table className={classes.table}>
+                  <TableHead>
+                    <TableRow>
+                      {[...Array(parseInt(scenarios.quantity, 10))].map((scenario, index) => (
+                        this.renderScenarioTableCell(index)
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {[...Array(parseInt(investiments.quantity, 10))].map((investiment, index) => (
+                      this.renderInvestimentTableRow(index)
+                    ))}
+                  </TableBody>
+                </Table>
+                <br />
+                <Button 
+                  variant="outlined" 
                   color="primary"  
                   size="large" 
                   className={classes.button} 
-                  onClick={() => this.handlerStepOne()}
+                  onClick={() => this.handleStepTwo()}
                 >
-                  PROSSEGUIR
+                  AVANÇAR
                 </Button>
-              </form>
-            ) : (
-              <Table className={classes.table}>
-                <TableHead>
-                  <TableRow>
-                    {[...Array(parseInt(scenarios.quantity))].map((scenario, index) => (
-                      this.renderScenarioTableCell(index)
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {[...Array(parseInt(investiments.quantity))].map((investiment, index) => (
-                    this.renderInvestimentTableRow(index)
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+              </div>
+            ) : null}
           </Grid>
         </Grid>
       </div>
