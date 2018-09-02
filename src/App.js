@@ -104,6 +104,7 @@ class App extends Component {
     maximin: {},
     laplace: {},
     hurwicz: {},
+    regret: {},
   }
 
   handleStepOne = () => {
@@ -161,7 +162,17 @@ class App extends Component {
 
   handleStepTwo = () => {
     
-    let { scenariosPercents, scenariosPercentsSum, investiments, maximax, scenariosValues, maximin, laplace, hurwicz } = this.state
+    let { 
+      scenariosPercents, 
+      scenariosPercentsSum, 
+      investiments, 
+      maximax, 
+      scenariosValues, 
+      maximin, 
+      laplace, 
+      hurwicz,
+      regret 
+    } = this.state
     
     // Makes the sum of the percents
     Object.entries(scenariosPercents).forEach(([key, value]) => {
@@ -179,8 +190,16 @@ class App extends Component {
     maximin = this.handleCalculateMaximinValues()
     laplace = this.handleCalculateLaplaceValues()
     hurwicz = this.handleCalculateHurwiczValues()
+    regret = this.handleCalculateMaxRegret()
 
+    console.log(maximax)
+    console.log(maximin)
+    console.log(laplace)
     console.log(hurwicz)
+  }
+
+  handleCalculateMaxRegret = () => {
+
   }
 
   handleCalculateMaximaxValues = () => {
@@ -263,6 +282,7 @@ class App extends Component {
     for (let i = 1; i <= investiments.quantity; i++) {
 
       Object.entries(scenariosValues[i]).forEach(([key, value]) => {
+        console.log(sum, value)
         sum = sum + value
       })
 
