@@ -19,6 +19,9 @@ import {
   Select
 } from "@material-ui/core"
 
+import TableResultIncerteza from "./TableResultIncerteza"
+import TableResultRisco from "./TableResultRisco"
+
 const CustomTableCell = withStyles(theme => ({
   head: {
     backgroundColor: theme.palette.common.white,
@@ -95,16 +98,25 @@ class App extends Component {
     scenariosValues: {},
     completed: 0,
     buffer: 10,
-    step_one_loading: false,
-    step_one_done: false,
-    step_two_loading: false,
-    step_two_done: false,
+    stepOneLoading: false,
+    stepOneDone: false,
+    stepTwoLoading: false,
+    stepTwoDone: false,
     environment: "",
-    maximax: {},
-    maximin: {},
-    laplace: {},
-    hurwicz: {},
-    regret: {},
+    maximax: null,
+    maximin: null,
+    laplace: null,
+    hurwicz: null,
+    regret: null,
+    showResultsIncerteza: false,
+    showResultsRisco: false,
+    rowsIncerteza: {},
+    rowsMaxRegret: {},
+    minRegret: null,
+    vme: [], 
+    biggerVME: "", 
+    maxVME: "",
+    investimentMaxRegret: ""
   }
 
   handleStepOne = () => {
@@ -113,7 +125,7 @@ class App extends Component {
     this.resetErrors()
 
     // Show Linear Progress
-    this.setState({ step_one_loading: true })
+    this.setState({ stepOneLoading: true })
 
     let { investiments, scenarios } = this.state
 
@@ -156,50 +168,224 @@ class App extends Component {
     if (!investiments.error && !scenarios.error) {
       this.timer = setInterval(this.linearProgress, 400);
     } else {
-      this.setState({ step_one_loading: false })
+      this.setState({ stepOneLoading: false })
     }
   }
 
   handleStepTwo = () => {
     
-    let { 
-      scenariosPercents, 
-      scenariosPercentsSum, 
-      investiments, 
-      maximax, 
-      scenariosValues, 
-      maximin, 
-      laplace, 
-      hurwicz,
-      regret 
-    } = this.state
+    let { scenariosPercents, scenariosPercentsSum, environment} = this.state
     
-    // Makes the sum of the percents
     Object.entries(scenariosPercents).forEach(([key, value]) => {
       scenariosPercentsSum = scenariosPercentsSum + value
     })
-    
-    // Verifies that the sum of percents is different from 100
+ 
     if (scenariosPercentsSum !== 100) {
-      // TODO: Show the error
+      // TODO: SHOW ERROR
     }
 
-    // TODO: Check that the input values are all filled
+    switch (environment) {
+      case 1:
+        this.handleCalculateIncerteza()
+      break
+      case 2:
+        this.handleCalculateRisco()
+      break
+      case "":
+        // TODO: SHOW ERROR
+      break
+    }
+  }
 
-    maximax = this.handleCalculateMaximaxValues()
-    maximin = this.handleCalculateMaximinValues()
-    laplace = this.handleCalculateLaplaceValues()
-    hurwicz = this.handleCalculateHurwiczValues()
-    regret = this.handleCalculateMaxRegret()
+  handleCalculateIncerteza = () => {
 
-    console.log(maximax)
-    console.log(maximin)
-    console.log(laplace)
-    console.log(hurwicz)
+    const maximax = this.handleCalculateMaximaxValues()
+    const maximin = this.handleCalculateMaximinValues()
+    const laplace = this.handleCalculateLaplaceValues()
+    const hurwicz = this.handleCalculateHurwiczValues()
+    const maxRegretObject = this.handleCalculateMaxRegret()
+
+    const rowsIncerteza = this.generateTableResultsIncerteza(maximax, maximin, laplace, hurwicz)
+
+    let state = this.state
+
+    state.showResultsIncerteza = true
+    state.rowsIncerteza = rowsIncerteza
+    state.rowsMaxRegret = maxRegretObject["array"]
+    state.minRegret = maxRegretObject["valor"]
+    state.investimentMaxRegret = maxRegretObject["investiment"]
+
+    this.setState(state)
+  }
+
+  handleCalculateRisco = () => {
+
+    const hurwicz = this.handleCalculateHurwiczValues()
+    let arrayHurwicz = []
+
+    Object.entries(hurwicz).forEach(([key, value]) => {
+      arrayHurwicz.push(value)
+    })
+
+    let bigger = -999999999999
+
+    arrayHurwicz.forEach(item => {
+      if (item > bigger) {
+        bigger = item
+      }
+    })
+
+    const biggerVME = bigger
+    const VME = arrayHurwicz
+
+    let { investiments, scenarios, scenariosValues, scenariosPercents } = this.state
+
+    let orderScenario = {}
+    
+    for (let scenario = 1; scenario <= scenarios.quantity; scenario++) {
+      for (let investiment = 1; investiment <= investiments.quantity; investiment++) {
+        Object.entries(scenariosValues[investiment]).forEach(([key, value]) => {
+          if(scenario === parseInt(key)) {
+            if (orderScenario[scenario]) {
+              orderScenario[scenario] = [ ...orderScenario[scenario], value ]
+            } else {
+              orderScenario[scenario] = [ value ]
+            }
+          }
+        })
+      }
+    }
+
+    let biggerItems = {}
+    let count
+
+    for (let i = 1; i <= scenarios.quantity; i++) {
+      count = -99999999
+      orderScenario[i].forEach((item, index)=> {
+        if (item > count) {
+          count = item
+          biggerItems[i] = {
+            bigger: item,
+            biggerInPercent: parseFloat(item) * (scenariosPercents[i] / 100)
+          }
+        }
+      })
+    }
+
+    let counter = 0
+
+    Object.entries(biggerItems).forEach(([key, value]) => {
+      counter += parseFloat(value["biggerInPercent"])
+    })
+
+    const maxVME = counter
+
+    let state = this.state
+
+    state.showResultsRisco = true
+    state.vme = VME
+    state.biggerVME = biggerVME
+    state.maxVME = maxVME
+
+    this.setState(state)
   }
 
   handleCalculateMaxRegret = () => {
+    
+    const { investiments, scenarios, scenariosValues } = this.state 
 
+    let orderScenario = {}
+    
+    for (let scenario = 1; scenario <= scenarios.quantity; scenario++) {
+      for (let investiment = 1; investiment <= investiments.quantity; investiment++) {
+        Object.entries(scenariosValues[investiment]).forEach(([key, value]) => {
+          if(scenario === parseInt(key)) {
+            if (orderScenario[scenario]) {
+              orderScenario[scenario] = [ ...orderScenario[scenario], value ]
+            } else {
+              orderScenario[scenario] = [ value ]
+            }
+          }
+        })
+      }
+    }
+
+    let biggerItems = {}
+    let count
+
+    for (let i = 1; i <= scenarios.quantity; i++) {
+      count = -999999999
+      orderScenario[i].forEach((item, index)=> {
+        if (item > count) {
+          count = item
+          biggerItems[i] = {
+            bigger: item,
+            investiment: index + 1,
+          }
+        }
+      })
+    }
+
+    let maxRegretSubtraction = {}
+
+    for (let i = 1; i <= scenarios.quantity; i++) {
+      maxRegretSubtraction[i] = []
+      orderScenario[i].forEach((item) => {
+        maxRegretSubtraction[i].push(biggerItems[i]["bigger"] - item)
+      })
+    }
+
+    let maxRegretSubtractedAndReordened = {}
+    
+    for (let i = 1; i <= investiments.quantity; i++) {
+      maxRegretSubtractedAndReordened[i] = []
+    }
+    
+    for (let i = 1; i <= Object.keys(maxRegretSubtraction).length; i++) {
+      maxRegretSubtraction[i].forEach((item, index) => {
+        maxRegretSubtractedAndReordened[index + 1].push(item)
+      })
+    }
+
+    let biggerItemMaxRegretSubtractedAndReordened = {}
+    let biggerItemMaxRegretSubtractedAndReordenedArray = []
+    let counter
+    let keyBiggerItem
+    
+    for (let i = 1; i <= Object.keys(maxRegretSubtractedAndReordened).length; i++) {
+      counter = 0
+      keyBiggerItem = 0
+      Object.entries(maxRegretSubtractedAndReordened[i]).forEach(([key, value]) => {
+        if (value > counter) {
+          counter = parseInt(value)
+          keyBiggerItem = parseInt(key) + 1
+        }
+      })
+      biggerItemMaxRegretSubtractedAndReordened[i] = {
+        key: parseInt(keyBiggerItem),
+        value: parseInt(counter),
+      }
+      biggerItemMaxRegretSubtractedAndReordenedArray.push(counter)
+    }
+    
+    let counterMinRegret = 0
+
+    biggerItemMaxRegretSubtractedAndReordenedArray.forEach((item, index) => {
+
+      if (index == 0) {
+        counterMinRegret = item
+      }
+
+      if (item <= counterMinRegret) {
+        counterMinRegret = item
+      }
+    })
+
+    return {
+      "array": maxRegretSubtractedAndReordened,
+      "valor": counterMinRegret,
+      "investiment": biggerItemMaxRegretSubtractedAndReordened,
+    }
   }
 
   handleCalculateMaximaxValues = () => {
@@ -229,8 +415,6 @@ class App extends Component {
       keyScenario = 0
       valueScenario = 0
     }
-
-    this.setState({ maximax })
 
     return maximax
   }
@@ -268,8 +452,6 @@ class App extends Component {
       valueScenario = 0
     }
 
-    this.setState({ maximin })
-
     return maximin
   }
 
@@ -282,7 +464,6 @@ class App extends Component {
     for (let i = 1; i <= investiments.quantity; i++) {
 
       Object.entries(scenariosValues[i]).forEach(([key, value]) => {
-        console.log(sum, value)
         sum = sum + value
       })
 
@@ -293,8 +474,6 @@ class App extends Component {
 
       sum = 0
     }
-
-    this.setState({ laplace })
 
     return laplace
   }
@@ -322,8 +501,6 @@ class App extends Component {
       sum = 0
     }
 
-    this.setState({ hurwicz })
-
     return hurwicz
   }
 
@@ -343,7 +520,7 @@ class App extends Component {
 
     if (completed > 100) {
 
-      this.setState({ completed: 0, buffer: 100, step_one_loading: false, step_one_done: true })
+      this.setState({ completed: 0, buffer: 100, stepOneLoading: false, stepOneDone: true })
     } else {
 
       const diff = Math.random() * 80
@@ -461,23 +638,38 @@ class App extends Component {
   }
 
   handleChangeEnvironment = (event) => {
-    this.setState({ ...this.state, environment: event.target.value })
+    this.setState({ environment: event.target.value })
+  }
+
+  generateTableResultsIncerteza = (maximax, maximin, laplace, hurwicz) => {
+
+    let rowsIncerteza = {}
+
+    for (let i = 1; i <= this.state.investiments.quantity; i++) {
+      rowsIncerteza[i] = []
+      rowsIncerteza[i].push(maximax[i]["value"])
+      rowsIncerteza[i].push(maximin[i]["value"])
+      rowsIncerteza[i].push(laplace[i])
+      rowsIncerteza[i].push(hurwicz[i])
+    }
+    
+    return rowsIncerteza
   }
 
   render() {
     
     const { classes } = this.props
-    const { investiments, scenarios, step_one_loading, step_two_loading, step_two_done, step_one_done, completed, buffer } = this.state
-
+    const { investiments, scenarios, stepOneLoading, stepTwoLoading, stepTwoDone, stepOneDone, completed, buffer, showResultsIncerteza, rowsIncerteza, rowsMaxRegret, minRegret, showResultsRisco, vme, biggerVME, maxVME, investimentMaxRegret } = this.state
+    
     return (
       <div className={classes.root}>
-        {step_one_loading || step_two_loading ? <LinearProgress variant="buffer" value={completed} valueBuffer={buffer} /> : null}
+        {stepOneLoading || stepTwoLoading ? <LinearProgress variant="buffer" value={completed} valueBuffer={buffer} /> : null}
         <Grid 
           container 
           justify="center"
         >
           <Grid item xs={12}>
-            {!step_one_done ? (
+            {!stepOneDone ? (
               <form className={classes.container} noValidate autoComplete="off">
                 <TextField
                   required
@@ -523,7 +715,7 @@ class App extends Component {
                 </Button>
               </form>
             ) : null}
-            {step_one_done && !step_two_done ? (
+            {stepOneDone && !stepTwoDone ? (
               <div>
                 <form className={classes.container} autoComplete="off">
                   <FormControl className={classes.formControl}>
@@ -571,6 +763,8 @@ class App extends Component {
                 </Button>
               </div>
             ) : null}
+            {showResultsIncerteza ? <TableResultIncerteza rows={rowsIncerteza} rowsMaxRegret={rowsMaxRegret} valMinRegret={minRegret} investimentMaxRegret={investimentMaxRegret} /> : null}
+            {showResultsRisco ? <TableResultRisco vme={vme} biggerVME={biggerVME} maxVME={maxVME} /> : null}
           </Grid>
         </Grid>
       </div>
